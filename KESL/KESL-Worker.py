@@ -1,3 +1,4 @@
+import hashlib
 import re
 import requests
 import subprocess
@@ -24,7 +25,7 @@ def scan_file(filename):
     result = subprocess.run(command, shell=True, capture_output=True, text=True)
     return result.stdout, result.stderr
 
-def parse_log():
+def parse_log(filename, hash_sha256):
     command = 'kesl-control -E --query "EventType==\'ThreatDetected\'"'
     result = subprocess.run(command, shell=True, capture_output=True, text=True)
     
@@ -32,36 +33,40 @@ def parse_log():
         raise RuntimeError(f"Command failed: {result.stderr}")
 
     pattern = re.compile(
-        r"Date=(.*?)\s"
+        r"EventType=ThreatDetected.*?"
         r".*?FileName=(.*?)\s"
         r".*?DetectName=(.*?)\s"
-        r".*?Md5Hash=(.*?)\s"
-        r".*?Sha256Hash=(.*?)\s"
+        r".*?Sha256Hash=(.*?)\s",
+        re.DOTALL
     )
 
     matches = pattern.findall(result.stdout)
     parsed_data = []
 
     for match in matches:
-        entry = {
-            'Date': match[0],
-            'FileName': match[1],
-            'DetectName': match[2],
-            'Md5Hash': match[3],
-            'Sha256Hash': match[4]
-        }
-        parsed_data.append(entry)
+        if match[0] == file_name and match[2] == hash_sha256:
+            entry = {
+                'FileName': match[0],
+                'DetectName': match[1],
+                'Sha256Hash': match[2]
+            }
+            parsed_data.append(entry)
 
-    return parsed_data
+    return parsed_data[-1] if parsed_data else None
 
-def put_scan(api_key, base_url, scan_id, verdict, sha1):
-    response = requests.post(f"{base_url}/api/put_scan.php", json={"api_key": api_key, "scan_id": scan_id, "verdict": verdict, "sha1": sha1})
+def put_scan(api_key, base_url, scan_id, verdict, hash_value):
+    response = requests.post(f"{base_url}/api/put_scan.php", json={"api_key": api_key, "scan_id": scan_id, "verdict": verdict, "hash_value": hash_value})
     response.raise_for_status()
     return response.json()
 
+def calculate_sha256(file_content):
+    sha256 = hashlib.sha256()
+    sha256.update(file_content)
+    return sha256.hexdigest()
+
 def main():
     base_url = "http://127.0.0.1/"
-    api_key = "keslkey"
+    api_key = "dummykey"
     
     try:
         # Get list of IDs
@@ -71,20 +76,23 @@ def main():
             
             # Download file
             file_content = get_file(api_key, base_url, scan_id)
+
+            # Calculate size and sha256
             file_size = len(file_content)
+            hash_sha256 = calculate_hashes(file_content)
+
+            # Save file
             temp_file = save_to_temp_file(file_content)
 
             # Scan file
             stdout, stderr = scan_file(temp_file_path)
 
             # Parse results
-            results = parse_log()
-            print(results)
+            results = parse_log(temp_file_path, hash_sha256)
 
             # Send result
-            #verdict = f"Dummy result - {file_size}"
-            #put_scan(api_key, base_url, scan_id, results[''], sha1)
-            #print(f"Processed file ID {scan_id} with size {file_size} bytes and sha1 {sha1}.")
+            put_scan(api_key, base_url, scan_id, results['DetectName'], results['DetectName'])
+            print(f"Processed file ID {scan_id} with verdict {results['DetectName']} bytes and sha256 {results['Sha256Hash']}.")
     
     except requests.HTTPError as http_err:
         print(f"HTTP error occurred: {http_err}")
