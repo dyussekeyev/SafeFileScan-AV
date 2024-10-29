@@ -7,7 +7,7 @@ import tempfile
 def get_scans(api_key, base_url):
     response = requests.post(f"{base_url}/api/get_scans.php", json={"api_key": api_key})
     response.raise_for_status()
-    return response.json
+    return response.json()  # Note the parentheses to call the method
 
 def get_file(api_key, base_url, scan_id):
     response = requests.post(f"{base_url}/api/get_file.php", json={"api_key": api_key, "scan_id": scan_id})
@@ -44,7 +44,7 @@ def parse_log(filename, hash_sha256):
     parsed_data = []
 
     for match in matches:
-        if match[0] == file_name and match[2] == hash_sha256:
+        if match[0] == filename and match[2] == hash_sha256:
             entry = {
                 'FileName': match[0],
                 'DetectName': match[1],
@@ -79,10 +79,10 @@ def main():
 
             # Calculate size and sha256
             file_size = len(file_content)
-            hash_sha256 = calculate_hashes(file_content)
+            hash_sha256 = calculate_sha256(file_content)
 
             # Save file
-            temp_file = save_to_temp_file(file_content)
+            temp_file_path = save_to_temp_file(file_content)
 
             # Scan file
             stdout, stderr = scan_file(temp_file_path)
@@ -91,7 +91,7 @@ def main():
             results = parse_log(temp_file_path, hash_sha256)
 
             # Send result
-            put_scan(api_key, base_url, scan_id, results['DetectName'], results['DetectName'])
+            put_scan(api_key, base_url, scan_id, results['DetectName'], results['Sha256Hash'])
             print(f"Processed file ID {scan_id} with verdict {results['DetectName']} bytes and sha256 {results['Sha256Hash']}.")
     
     except requests.HTTPError as http_err:
