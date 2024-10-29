@@ -1,4 +1,6 @@
+import re
 import requests
+import subprocess
 import tempfile
 
 def get_scans(api_key, base_url):
