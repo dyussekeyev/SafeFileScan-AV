@@ -12,8 +12,8 @@ def get_file(api_key, base_url, scan_id):
     response.raise_for_status()
     return response.content
 
-def put_scan(api_key, base_url, scan_id, verdict, sha1):
-    response = requests.post(f"{base_url}/api/put_scan.php", json={"api_key": api_key, "scan_id": scan_id, "verdict": verdict, "sha1": sha1})
+def put_scan(api_key, base_url, scan_id, verdict, hash_value):
+    response = requests.post(f"{base_url}/api/put_scan.php", json={"api_key": api_key, "scan_id": scan_id, "verdict": verdict, "hash_value": hash_value})
     response.raise_for_status()
     return response.json()
 
